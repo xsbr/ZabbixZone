@@ -52,19 +52,17 @@ history_uint history_uint_sync trends trends_uint )
 # CONFTABLES
 for table in ${CONFTABLES[*]}; do
         DUMPFILE="${DUMPDIR}/${table}.sql"
-        echo "Backuping table ${table}"
+        echo "Backing up table ${table}"
         ${MYSQLDUMP} -R --opt --extended-insert=FALSE \
-                -h ${DBHOST} -u ${DBUSER} -p${DBPASS} ${DBNAME} --tables ${table} >${DUMPFILE}
-        ${GZIP} -f ${DUMPFILE}
+                -h ${DBHOST} -u ${DBUSER} -p${DBPASS} ${DBNAME} --tables ${table} | ${GZIP} >${DUMPFILE}
 done
 
 # DATATABLES
 for table in ${DATATABLES[*]}; do
         DUMPFILE="${DUMPDIR}/${table}.sql"
-        echo "Backuping schema table ${table}"
+        echo "Backing up schema table ${table}"
         ${MYSQLDUMP} -R --opt --no-data	\
-                -h ${DBHOST} -u ${DBUSER} -p${DBPASS} ${DBNAME} --tables ${table} >${DUMPFILE}
-        ${GZIP} -f ${DUMPFILE}
+                -h ${DBHOST} -u ${DBUSER} -p${DBPASS} ${DBNAME} --tables ${table} | ${GZIP} >${DUMPFILE}
 done
 
 echo
