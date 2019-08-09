@@ -443,7 +443,7 @@ mkdir -p "${DUMPDIR}"
 [ "$QUIET" == "no" ] && echo "Starting table backups..."
 case $DBTYPE in
     mysql)
-        while read table; do
+        while read -r table; do
             # large data tables: only store schema
             if elementIn "$table" "${DATA_TABLES[@]}"; then
                 dump_opt="--no-data"
@@ -472,7 +472,7 @@ case $DBTYPE in
         done <<<"$DB_TABLES"
     ;;
     psql)
-        while read table; do
+        while read -r table; do
             if elementIn "$table" "${DATA_TABLES[@]}"; then
                 dump_opt="--exclude-table-data=$table"
                 PROCESSED_DATA_TABLES+=($dump_opt)
