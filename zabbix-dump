@@ -194,7 +194,7 @@ while getopts ":c:d:H:o:p:P:r:s:t:u:z:0nqxZ" opt; do
     esac
 done
 
-[ ! -z "$MYSQL_CONFIG" ] && READ_ZBX_CONFIG="no"
+[ -n "$MYSQL_CONFIG" ] && READ_ZBX_CONFIG="no"
 
 # (Try) reading database config from zabbix_server.conf
 if [[ "${READ_ZBX_CONFIG}" == "yes" && -f "${ZBX_CONFIG}" && -r "${ZBX_CONFIG}" ]]; then
@@ -211,7 +211,7 @@ if [[ "${READ_ZBX_CONFIG}" == "yes" && -f "${ZBX_CONFIG}" && -r "${ZBX_CONFIG}" 
         [ "$DBTYPE" == "mysql" ] && searchstr="mysql"
         [ "$DBTYPE" == "psql" ] && searchstr="postgres"
         sock=$(netstat -axn | grep -m1 "$searchstr" | sed -r 's/^.*\s+([^ ]+)$/\1/')
-        if [[ ! -z "$sock" && -S $sock ]]; then DBSOCKET="$sock"; DBHOST=""; else DBHOST="${DBHost}"; fi
+        if [[ -n "$sock" && -S $sock ]]; then DBSOCKET="$sock"; DBHOST=""; else DBHOST="${DBHost}"; fi
     else
         DBHOST="${DBHost}"
         DBSOCKET="${DBSocket}"
@@ -237,12 +237,12 @@ fi
 [[ -z "$DBPORT" && "$DBTYPE" == "psql"  ]] && DBPORT="5432"
 
 # Options specified via command line override defaults or those from zabbix_server.conf (if any)
-[ ! -z "$ODBHOST" ] && DBHOST=$ODBHOST
-[ ! -z "$ODBPORT" ] && DBPORT=$ODBPORT
-[ ! -z "$ODBSOCKET" ] && DBSOCKET=$ODBSOCKET && DBHOST=""
-[ ! -z "$ODBNAME" ] && DBNAME=$ODBNAME
-[ ! -z "$ODBUSER" ] && DBUSER=$ODBUSER
-[ ! -z "$ODBPASS" ] && DBPASS=$ODBPASS
+[ -n "$ODBHOST" ] && DBHOST=$ODBHOST
+[ -n "$ODBPORT" ] && DBPORT=$ODBPORT
+[ -n "$ODBSOCKET" ] && DBSOCKET=$ODBSOCKET && DBHOST=""
+[ -n "$ODBNAME" ] && DBNAME=$ODBNAME
+[ -n "$ODBUSER" ] && DBUSER=$ODBUSER
+[ -n "$ODBPASS" ] && DBPASS=$ODBPASS
 
 # Password prompt
 if [ "$DBPASS" = "-" ]; then
@@ -251,7 +251,7 @@ if [ "$DBPASS" = "-" ]; then
 fi
 
 # MySQL config file validations
-if [ ! -z "$MYSQL_CONFIG" ]; then
+if [ -n "$MYSQL_CONFIG" ]; then
     if [ ! -r "$MYSQL_CONFIG" ]; then
         echo "ERROR: Cannot read configuration file $MYSQL_CONFIG" >&2
         exit 1
@@ -277,27 +277,27 @@ SUFFIX=""; test ! -z $COMPRESSION && SUFFIX=".${COMPRESSION}"
 DB_OPTS=()
 case $DBTYPE in
     mysql)
-        [ ! -z "$MYSQL_CONFIG" ] && DB_OPTS=("${DB_OPTS[@]}" --defaults-extra-file="$MYSQL_CONFIG")
-        [ ! -z "$DBSOCKET" ] && DB_OPTS=("${DB_OPTS[@]}" -S $DBSOCKET)
-        [ ! -z "$DBHOST" ] && DB_OPTS=("${DB_OPTS[@]}" -h $DBHOST)
-        [ ! -z "$DBUSER" ] && DB_OPTS=("${DB_OPTS[@]}" -u $DBUSER)
-        [ ! -z "$DBPASS" ] && DB_OPTS=("${DB_OPTS[@]}" -p"$DBPASS")
+        [ -n "$MYSQL_CONFIG" ] && DB_OPTS=("${DB_OPTS[@]}" --defaults-extra-file="$MYSQL_CONFIG")
+        [ -n "$DBSOCKET" ] && DB_OPTS=("${DB_OPTS[@]}" -S $DBSOCKET)
+        [ -n "$DBHOST" ] && DB_OPTS=("${DB_OPTS[@]}" -h $DBHOST)
+        [ -n "$DBUSER" ] && DB_OPTS=("${DB_OPTS[@]}" -u $DBUSER)
+        [ -n "$DBPASS" ] && DB_OPTS=("${DB_OPTS[@]}" -p"$DBPASS")
         DB_OPTS=("${DB_OPTS[@]}" -P"$DBPORT")
         DB_OPTS_BATCH=("${DB_OPTS[@]}" --batch --silent)
-        [ ! -z "$DBNAME" ] && DB_OPTS_BATCH=("${DB_OPTS_BATCH[@]}" -D $DBNAME)
+        [ -n "$DBNAME" ] && DB_OPTS_BATCH=("${DB_OPTS_BATCH[@]}" -D $DBNAME)
         ;;
     psql)
-        [ ! -z "$DBSOCKET" ] && DB_OPTS=("${DB_OPTS[@]}" -h $DBSOCKET)
-        [ ! -z "$DBHOST" ] && DB_OPTS=("${DB_OPTS[@]}" -h $DBHOST)
-        [ ! -z "$DBUSER" ] && DB_OPTS=("${DB_OPTS[@]}" -U $DBUSER)
+        [ -n "$DBSOCKET" ] && DB_OPTS=("${DB_OPTS[@]}" -h $DBSOCKET)
+        [ -n "$DBHOST" ] && DB_OPTS=("${DB_OPTS[@]}" -h $DBHOST)
+        [ -n "$DBUSER" ] && DB_OPTS=("${DB_OPTS[@]}" -U $DBUSER)
         DB_OPTS=("${DB_OPTS[@]}" -p"$DBPORT")
-        if [ ! -z "$DBPASS" ]; then
+        if [ -n "$DBPASS" ]; then
            export PGPASSFILE=$(mktemp -u)
            echo "$DBHOST:$DBPORT:$DBNAME:$DBUSER:$DBPASS" > $PGPASSFILE
            chmod 600 $PGPASSFILE
         fi
         DB_OPTS_BATCH=("${DB_OPTS[@]}" -Atw)
-        [ ! -z "$DBNAME" ] && DB_OPTS_BATCH=("${DB_OPTS_BATCH[@]}" -d $DBNAME)
+        [ -n "$DBNAME" ] && DB_OPTS_BATCH=("${DB_OPTS_BATCH[@]}" -d $DBNAME)
         ;;
 esac
 
@@ -308,7 +308,7 @@ ERRORLOG=$(mktemp)
 DBHOSTNAME="$DBHOST"
 command -v dig >/dev/null 2>&1
 FIND_DIG=$?
-if [ "$REVERSELOOKUP" == "yes" ] && [ $FIND_DIG -eq 0 ] && [ ! -z "$DBHOST" ]; then
+if [ "$REVERSELOOKUP" == "yes" ] && [ $FIND_DIG -eq 0 ] && [ -n "$DBHOST" ]; then
     # Try resolving a given host ip
     newHostname=$(dig +noall +answer -x "${DBHOST}" | sed -r 's/((\S+)\s+)+([^\.]+)\..*/\3/')
     test \! -z "$newHostname" && DBHOSTNAME="$newHostname"
@@ -322,12 +322,12 @@ if [ "$QUIET" == "no" ]; then
 Configuration:
  - type:     $DBTYPE
 EOF
-    [ ! -z "$MYSQL_CONFIG" ] && echo " - cfg file: $MYSQL_CONFIG"
-    [ ! -z "$DBHOST" ] && echo " - host:     $DBHOST ($DBHOSTNAME)" && echo " - port:     $DBPORT"
-    [ ! -z "$DBSOCKET" ] && echo " - socket:   $DBSOCKET"
-    [ ! -z "$DBNAME" ] && echo " - database: $DBNAME"
-    [ ! -z "$DBUSER" ] && echo " - user:     $DBUSER"
-    [ ! -z "$DUMPDIR" ] && echo " - output:   $DUMPDIR"
+    [ -n "$MYSQL_CONFIG" ] && echo " - cfg file: $MYSQL_CONFIG"
+    [ -n "$DBHOST" ] && echo " - host:     $DBHOST ($DBHOSTNAME)" && echo " - port:     $DBPORT"
+    [ -n "$DBSOCKET" ] && echo " - socket:   $DBSOCKET"
+    [ -n "$DBNAME" ] && echo " - database: $DBNAME"
+    [ -n "$DBUSER" ] && echo " - user:     $DBUSER"
+    [ -n "$DUMPDIR" ] && echo " - output:   $DUMPDIR"
 fi
 
 #
