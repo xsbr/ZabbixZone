@@ -355,7 +355,7 @@ check_binary() {
 }
 clean_psql_pass() {
     if [ $DBTYPE = "psql" -a -n "$PGPASSFILE" ]; then
-       echo rm -f $PGPASSFILE
+       rm -f $PGPASSFILE
     fi
 }
 
