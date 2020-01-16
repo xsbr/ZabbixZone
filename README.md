@@ -1,6 +1,6 @@
 # Backup script for Zabbix configuration data (MySQL/PostgreSQL)
 
-This is a MySQL/PostgreSQL database backup script for the [Zabbix](http://www.zabbix.com/) monitoring software from version 1.3.1 up to 4.0.
+This is a MySQL/PostgreSQL database backup script for the [Zabbix](http://www.zabbix.com/) monitoring software from version 1.3.1 up to 4.4.
 
 ## Download
 
@@ -13,6 +13,15 @@ https://github.com/maxhq/zabbix-backup/releases/latest
 Please see the [Project Wiki](https://github.com/maxhq/zabbix-backup/wiki).
 
 ## Version history
+
+**0.9.2 (2020-01-16)**
+
+- ENH: Support for Zabbix 4.4
+- ENH: Fix (non-critical) shellcheck issues (Mario Trangoni)
+- CHG: Fix and enhance helper script get-table-list.pl
+- FIX: Escape special characters while reading password (ironbishop)
+- FIX: Re-enable accidentally disabled cleanup of postgresql password file
+- FIX: Insert hostname into backup file also if database resides on localhost
 
 **0.9.1 (2019-03-21)**
 
