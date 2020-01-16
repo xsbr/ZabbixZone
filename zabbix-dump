@@ -305,11 +305,17 @@ esac
 # Log file for errors
 ERRORLOG=$(mktemp)
 
-# Host name: try reverse lookup if IP is given
-DBHOSTNAME="$DBHOST"
+# Host name
+if [[ -z "$DBHOST" || "$DBHOST" == "127.0.0.1" || "$DBHOST" == "127.0.0.1" ]]; then
+    DBHOSTNAME="$(uname -n)"
+else
+    DBHOSTNAME="$DBHOST"
+fi
+
+# Try reverse lookup if IP is given
 command -v dig >/dev/null 2>&1
 FIND_DIG=$?
-if [ "$REVERSELOOKUP" == "yes" ] && [ $FIND_DIG -eq 0 ] && [ -n "$DBHOST" ]; then
+if [[ "$REVERSELOOKUP" == "yes" && $FIND_DIG -eq 0 && -n "$DBHOST" ]]; then
     # Try resolving a given host ip
     newHostname=$(dig +noall +answer -x "${DBHOST}" | sed -r 's/((\S+)\s+)+([^\.]+)\..*/\3/')
     test \! -z "$newHostname" && DBHOSTNAME="$newHostname"
