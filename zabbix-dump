@@ -199,29 +199,28 @@ done
 # (Try) reading database config from zabbix_server.conf
 if [[ "${READ_ZBX_CONFIG}" == "yes" && -f "${ZBX_CONFIG}" && -r "${ZBX_CONFIG}" ]]; then
     [ "$QUIET" == "no" ] && echo "Reading database options from ${ZBX_CONFIG}..."
-    source "${ZBX_CONFIG}"
+
+    # Reading config with awk (instead of source'ing the file) to avoid shell special characters execution
+    DBHOST="$(/usr/bin/awk -F'=' '/^DBHost/{ print $2 }' "${ZBX_CONFIG}")"
+    DBPORT="$(/usr/bin/awk -F'=' '/^DBPort/{ print $2 }' "${ZBX_CONFIG}")"
+    DBNAME="$(/usr/bin/awk -F'=' '/^DBName/{ print $2 }' "${ZBX_CONFIG}")"
+    DBUSER="$(/usr/bin/awk -F'=' '/^DBUser/{ print $2 }' "${ZBX_CONFIG}")"
+    DBPASS="$(/usr/bin/awk -F'=' '/^DBPassword/{ print $2 }' "${ZBX_CONFIG}")"
 
     # set non-existing variables to their Zabbix defaults (if they are non-empty string)
-    [ -z ${DBHost+x} ] && DBHost="localhost"
+    [ -z ${DBHOST+x} ] && DBHOST="localhost"
 
     # Zabbix config has a special treatment for DBHost:
     # > If set to localhost, socket is used for MySQL.
     # > If set to empty string, socket is used for PostgreSQL.
-    if [[ ( "$DBTYPE" == "mysql" && "${DBHost}" == "localhost" ) || ( "$DBTYPE" == "psql" && "${DBHost}" == "" ) ]]; then
+    if [[ ( "$DBTYPE" == "mysql" && "$DBHOST" == "localhost" ) || ( "$DBTYPE" == "psql" && "$DBHOST" == "" ) ]]; then
         [ "$DBTYPE" == "mysql" ] && searchstr="mysql"
         [ "$DBTYPE" == "psql" ] && searchstr="postgres"
         sock=$(netstat -axn | grep -m1 "$searchstr" | sed -r 's/^.*\s+([^ ]+)$/\1/')
-        if [[ ! -z "$sock" && -S $sock ]]; then DBSOCKET="$sock"; DBHOST=""; else DBHOST="${DBHost}"; fi
+        if [[ ! -z "$sock" && -S $sock ]]; then DBSOCKET="$sock"; DBHOST=""; fi
     else
-        DBHOST="${DBHost}"
-        DBSOCKET="${DBSocket}"
+        DBSOCKET="$(/usr/bin/awk -F'=' '/^DBSocket/{ print $2 }' "${ZBX_CONFIG}")"
     fi
-    
-    DBPORT="${DBPort}"
-    DBNAME="${DBName}"
-    DBUSER="${DBUser}"
-    # Rereading password with awk, to avoid shell special characters execution.
-    DBPASS="`/usr/bin/awk -F'=' '/^DBPassword/{ print $2 }' "${ZBX_CONFIG}"`"
 
 # Otherwise: set default values
 else
@@ -325,11 +324,11 @@ Configuration:
  - type:     $DBTYPE
 EOF
     [ ! -z "$MYSQL_CONFIG" ] && echo " - cfg file: $MYSQL_CONFIG"
-    [ ! -z "$DBHOST" ] && echo " - host:     $DBHOST ($DBHOSTNAME)" && echo " - port:     $DBPORT"
-    [ ! -z "$DBSOCKET" ] && echo " - socket:   $DBSOCKET"
-    [ ! -z "$DBNAME" ] && echo " - database: $DBNAME"
-    [ ! -z "$DBUSER" ] && echo " - user:     $DBUSER"
-    [ ! -z "$DUMPDIR" ] && echo " - output:   $DUMPDIR"
+    [ ! -z "$DBHOST" ]       && echo " - host:     $DBHOST ($DBHOSTNAME)" && echo " - port:     $DBPORT"
+    [ ! -z "$DBSOCKET" ]     && echo " - socket:   $DBSOCKET"
+    [ ! -z "$DBNAME" ]       && echo " - database: $DBNAME"
+    [ ! -z "$DBUSER" ]       && echo " - user:     $DBUSER"
+    [ ! -z "$DUMPDIR" ]      && echo " - output:   $DUMPDIR"
 fi
 
 #
