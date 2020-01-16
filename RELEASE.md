@@ -6,7 +6,26 @@
 
 ### After commit
 
+* Tag the release commit: `git tag v0.9.2 && git push --tags`
 * Add release at https://github.com/maxhq/zabbix-backup/releases
+
+  **Summary of main changes**
+
+  ```
+This release fixes ...
+
+### Direct download
+
+[zabbix-mysql-dump](https://raw.githubusercontent.com/maxhq/zabbix-backup/v0.9.2/zabbix-dump) (v0.9.2)
+
+### Changelog
+
+Please see the [version history in the README](https://github.com/maxhq/zabbix-backup/blob/v0.9.2/README.md#version-history).
+
+### Thanks!
+- @username
+  ```
+
 * Update https://github.com/maxhq/zabbix-backup/wiki
 * Update http://zabbix.org/wiki/Docs/howto/mysql_backup_script
 * Announce release at https://www.linkedin.com/groups/161448
@@ -17,6 +36,7 @@
   > Tables holding configuration data will be fully backed up. For mass data tables (events, history, trends, ...) only the table schema is stored without any data (to keep the backup small).
   >
   > Overiew: https://github.com/maxhq/zabbix-backup/blob/master/README.md
+  > Latest release: https://github.com/maxhq/zabbix-backup/releases/latest
 
 * Announce release at https://www.xing.com/communities/forums/100845147
 
@@ -26,3 +46,4 @@
   > Es sichert Konfigurationsdaten komplett, bei Tabellen mit Massendaten (Historie, Events, Trends etc.) jedoch nur das "leere" Datenbankschema (um das Backup zu minimieren).
   >
   > Übersicht: https://github.com/maxhq/zabbix-backup/blob/master/README.md
+  > Neueste Version: https://github.com/maxhq/zabbix-backup/releases/latest
