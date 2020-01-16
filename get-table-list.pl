@@ -24,7 +24,8 @@ use version;
 
 my $REPO = 'https://git.zabbix.com/scm/zbx/zabbix.git';
 my $REPO_WEB = 'https://git.zabbix.com/projects/ZBX/repos/zabbix/raw';
-my $tables = {}; # for each table, create a list of Zabbix versions that know it
+my $tabinfo = {};     # for each table, create a list of Zabbix versions that know it
+my $tabinfo_old = {}; # old data from zabbix_dump
 
 sub stop {
 	my ($msg) = @_;
@@ -60,6 +61,22 @@ sub cmpver {
 	return -1 if scalar(@a_parts) < scalar(@b_parts);
 	# equal
 	return 0;
+}
+
+# Read old table informations from zabbix-dump
+open my $fh, '<', './zabbix-dump' or stop("Couldn't find 'zabbix-dump': $!");
+my $within_data_section = 0;
+while (<$fh>) {
+    chomp;
+    if (/^__DATA__/) { $within_data_section = 1; next }
+    next unless $within_data_section;
+    my ($table, $from, undef, $to, $mode) = split /\s+/;
+
+    $tabinfo_old->{$table} = {
+	    from => $from,
+        to => $to,
+        schema_only => ($mode//"") eq "SCHEMAONLY" ? 1 : 0,
+	};
 }
 
 # Check for Git client
@@ -113,8 +130,8 @@ for my $tag (sort { cmpver($a,$b) } keys %$tags) {
 		chomp;
 		next unless m/^TABLE/;
 		my (undef, $table) = split /\|/;
-		$tables->{$table} //= [];
-		push @{$tables->{$table}}, $tag;
+		$tabinfo->{$table} //= [];
+		push @{$tabinfo->{$table}}, $tag;
 	}
 	print " Done\n";
 }
@@ -123,8 +140,11 @@ for my $tag (sort { cmpver($a,$b) } keys %$tags) {
 # Print out results
 #
 print "\n\n";
-print "TABLE                      FIRST USE  LAST USE\n";
-print "------------------------------------------------\n";
-for my $tab (sort keys %$tables) {
-	printf "%-26s %-8s - %s\n", $tab, $tables->{$tab}->[0], $tables->{$tab}->[-1];
+print "TABLE                      FIRST USE  LAST USE  MODE\n";
+print "----------------------------------------------------\n";
+for my $tab (sort keys %$tabinfo) {
+	my $mode = $tabinfo_old->{$tab}
+		? ($tabinfo_old->{$tab}->{schema_only} ? '  SCHEMAONLY' : '')
+		: '  <-- NEW TABLE! Only store schema?';
+	printf "%-26s %-8s - %-8s%s\n", $tab, $tabinfo->{$tab}->[0], $tabinfo->{$tab}->[-1], $mode;
 }
