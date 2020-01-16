@@ -24,8 +24,6 @@ use version;
 
 my $REPO = 'https://git.zabbix.com/scm/zbx/zabbix.git';
 my $REPO_WEB = 'https://git.zabbix.com/projects/ZBX/repos/zabbix/raw';
-my $tabinfo = {};     # for each table, create a list of Zabbix versions that know it
-my $tabinfo_old = {}; # old data from zabbix_dump
 
 sub stop {
 	my ($msg) = @_;
@@ -63,47 +61,66 @@ sub cmpver {
 	return 0;
 }
 
-# Read old table informations from zabbix-dump
-open my $fh, '<', './zabbix-dump' or stop("Couldn't find 'zabbix-dump': $!");
-my $within_data_section = 0;
-while (<$fh>) {
-    chomp;
-    if (/^__DATA__/) { $within_data_section = 1; next }
-    next unless $within_data_section;
-    my ($table, $from, undef, $to, $mode) = split /\s+/;
+# Get tag list from repo:
+sub get_taglist {
+	print "Querying existing tags from $REPO...\n";
 
-    $tabinfo_old->{$table} = {
-	    from => $from,
-        to => $to,
-        schema_only => ($mode//"") eq "SCHEMAONLY" ? 1 : 0,
+	# Returned format:
+	#	7f6b20903537b9bbf72fe2b75ab7fac557856aad	refs/tags/1.0
+	#	693709cc4a80777f7759856c853b38cbc920f068	refs/tags/1.1
+	my @tags_raw = `git ls-remote -t $REPO`;
+	# remove trailing newline
+	chomp @tags_raw;
+	# skip release candidates, betas and tags like "zabicom-xxx"
+	@tags_raw = grep { m{ refs/tags/ \d+ \. \d+ ( \. \d+ )? $}x } @tags_raw;
+
+	# Create HashRef:
+	#   1.0 => 7f6b20903537b9bbf72fe2b75ab7fac557856aad
+	#   1.1 => 693709cc4a80777f7759856c853b38cbc920f068
+	return {
+		map { m{^ (\w+) \s+ refs/tags/ (.*) $}x; $2 => $1 } @tags_raw
 	};
 }
 
-# Check for Git client
+# Read old table informations from zabbix-dump
+sub get_old_tabinfo {
+	my $tabinfo_old = {};
+
+	open my $fh, '<', './zabbix-dump' or stop("Couldn't find 'zabbix-dump': $!");
+
+	my $within_data_section = 0;
+	while (<$fh>) {
+	    chomp;
+	    if (/^__DATA__/) { $within_data_section = 1; next }
+	    next unless $within_data_section;
+	    my ($table, $from, undef, $to, $mode) = split /\s+/;
+
+	    $tabinfo_old->{$table} = {
+		    from => $from,
+	        to => $to,
+	        schema_only => ($mode//"") eq "SCHEMAONLY" ? 1 : 0,
+		};
+	}
+
+	return $tabinfo_old;
+}
+
+
+
 `which git` or stop("No Git client found");
 
-# Get tag list from repo:
-#	7f6b20903537b9bbf72fe2b75ab7fac557856aad	refs/tags/1.0
-#	693709cc4a80777f7759856c853b38cbc920f068	refs/tags/1.1
-print "Querying existing tags from $REPO...\n";
-my @tags_raw = `git ls-remote -t $REPO`;
-# remove trailing newline
-chomp @tags_raw;
-# skip release candidates, betas and tags like "zabicom-xxx"
-@tags_raw = grep { m{ refs/tags/ \d+ \. \d+ ( \. \d+ )? $}x } @tags_raw;
+my $tabinfo_old = get_old_tabinfo(); # old data from zabbix_dump
 
-# Create HashRef:
-#   1.0 => 7f6b20903537b9bbf72fe2b75ab7fac557856aad
-#   1.1 => 693709cc4a80777f7759856c853b38cbc920f068
-my $tags = { map { m{^ (\w+) \s+ refs/tags/ (.*) $}x; $2 => $1 } @tags_raw };
+my $tags = get_taglist();
+my $tabinfo = {}; # for each table, create a list of Zabbix versions that know it
+
+print "Reading table schemas...\n";
 
 # Loop over tags and read table schema
-print "Reading table schemas...\n";
 for my $tag (sort { cmpver($a,$b) } keys %$tags) {
 	next if cmpver($tag, "1.3.1") < 0; # before Zabbix 1.3.1, schema was stored as pure SQL
 
-	my $schema;
-	my $subdir;
+	my ($schema, $subdir);
 
 	printf " - %-8s %s", $tag, "Looking for schema...";
 	# search in subdir /schema (<= 1.9.8) and /src for schema.(sql|tmpl)
