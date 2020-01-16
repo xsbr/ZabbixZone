@@ -1,6 +1,4 @@
 # Backup script for Zabbix configuration data (MySQL/PostgreSQL)
-[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fmaxhq%2Fzabbix-backup.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fmaxhq%2Fzabbix-backup?ref=badge_shield)
-
 
 This is a MySQL/PostgreSQL database backup script for the [Zabbix](http://www.zabbix.com/) monitoring software from version 1.3.1 up to 4.0.
 
@@ -82,7 +80,3 @@ Please see the [Project Wiki](https://github.com/maxhq/zabbix-backup/wiki).
   variables (DATEBIN etc) for commands that use to be in $PATH
 
 **0.2.0 (2011-11-05)**
-
-
-## License
-[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fmaxhq%2Fzabbix-backup.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fmaxhq%2Fzabbix-backup?ref=badge_large)
