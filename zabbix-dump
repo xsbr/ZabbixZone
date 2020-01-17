@@ -395,17 +395,17 @@ esac
 # READ TABLE LIST from __DATA__ section at the end of this script
 # (http://stackoverflow.com/a/3477269/2983301)
 #
-DATA_TABLES=()
+SCHEMAONLY_TABLES=()
 KNOWN_TABLES=()
 while read -r line; do
     table=$(echo "$line" | cut -d" " -f1)
     echo "$line" | cut -d" " -f5 | grep -qi "SCHEMAONLY"
-    test $? -eq 0 && DATA_TABLES+=($table)
+    test $? -eq 0 && SCHEMAONLY_TABLES+=($table)
     KNOWN_TABLES+=($table)
 done < <(sed '0,/^__DATA__$/d' "${BASH_SOURCE[*]}" | tr -s " ")
 
 # paranoid check
-if [ ${#DATA_TABLES[@]} -lt 5 ]; then
+if [ ${#SCHEMAONLY_TABLES[@]} -lt 5 ]; then
     echo "ERROR: The number of large data tables configured in this script is less than 5." >&2
     exit 1
 fi
@@ -477,7 +477,7 @@ DUMPFILENAME_PREFIX="zabbix_cfg_${DBHOSTNAME}"
 DUMPFILEBASE="${DUMPFILENAME_PREFIX}_$(date +%Y%m%d-%H%M)${VERSION}.sql"
 DUMPFILE="$DUMPDIR/$DUMPFILEBASE"
 
-PROCESSED_DATA_TABLES=()
+PROCESSED_SCHEMAONLY_TABLES=()
 i=0
 
 mkdir -p "${DUMPDIR}"
@@ -491,9 +491,9 @@ case $DBTYPE in
             fi
 
             # large data tables: only store schema
-            if elementIn "$table" "${DATA_TABLES[@]}"; then
+            if elementIn "$table" "${SCHEMAONLY_TABLES[@]}"; then
                 dump_opt="--no-data"
-                PROCESSED_DATA_TABLES+=($table)
+                PROCESSED_SCHEMAONLY_TABLES+=($table)
             # configuration tables: full dump
             else
                 dump_opt="--skip-extended-insert"
@@ -525,9 +525,9 @@ case $DBTYPE in
                     DUMP_OPTS+=(--exclude-table=$table)
                 fi
             fi
-            if elementIn "$table" "${DATA_TABLES[@]}"; then
+            if elementIn "$table" "${SCHEMAONLY_TABLES[@]}"; then
                 DUMP_OPTS+=(--exclude-table-data=$table)
-                PROCESSED_DATA_TABLES+=($table)
+                PROCESSED_SCHEMAONLY_TABLES+=($table)
             fi
         done <<<"$DB_TABLES"
 
@@ -550,7 +550,7 @@ rm $ERRORLOG
 if [ "$QUIET" == "no" ]; then
     echo -e "\n"
     echo "For the following large tables only the schema (without data) was stored:"
-    for table in "${PROCESSED_DATA_TABLES[@]}"; do echo " - $table"; done
+    for table in "${PROCESSED_SCHEMAONLY_TABLES[@]}"; do echo " - $table"; done
 
     echo
     echo "Compressing backup file..."
