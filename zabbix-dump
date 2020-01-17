@@ -496,7 +496,7 @@ case $DBTYPE in
                 PROCESSED_DATA_TABLES+=($table)
             # configuration tables: full dump
             else
-                dump_opt="--extended-insert=FALSE"
+                dump_opt="--skip-extended-insert"
             fi
 
             mysqldump "${DB_OPTS[@]}" \
