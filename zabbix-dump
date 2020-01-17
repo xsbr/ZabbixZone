@@ -560,24 +560,22 @@ rm $ERRORLOG
 # COMPRESS BACKUP
 #
 if [ "$QUIET" == "no" ]; then
-    echo -e "\n"
-    echo "For the following large tables only the schema (without data) was stored:"
+    echo $'\nFor the following large tables only the schema (without data) was stored:'
     for table in "${PROCESSED_SCHEMAONLY_TABLES[@]}"; do echo " - $table"; done
 
-    echo
-    echo "Compressing backup file..."
+    echo $'\nCompressing backup file...'
 fi
 
 EXITCODE=0
 if [ "$COMPRESSION" == "gz" ]; then gzip -f "$DUMPFILE"; EXITCODE=$?; fi
 if [ "$COMPRESSION" == "xz" ]; then xz   -f "$DUMPFILE"; EXITCODE=$?; fi
 if [ $EXITCODE -ne 0 ]; then
-    echo -e "\nERROR: Could not compress backup file, see previous messages" >&2
+    echo $'\nERROR: Could not compress backup file, see previous messages' >&2
     clean_psql_pass
     exit 1
 fi
 
-[ "$QUIET" == "no" ] && echo -e "\nBackup Completed:\n${DUMPFILE}${SUFFIX}"
+[ "$QUIET" == "no" ] && echo "Backup Completed" && echo "${DUMPFILE}${SUFFIX}"
 
 #
 # ROTATE OLD BACKUPS
