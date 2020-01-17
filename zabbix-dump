@@ -60,6 +60,7 @@ REVERSELOOKUP="yes"
 GENERATIONSTOKEEP=0
 ZBX_CONFIG="/etc/zabbix/zabbix_server.conf"
 READ_ZBX_CONFIG="yes"
+HANDLE_UNKNOWN="fail"
 
 #
 # SHOW HELP
@@ -135,6 +136,13 @@ OPTIONS
     -n
         Skip reverse lookup of IP address for host.
 
+    -f
+        Force backup for unknown tables / forward compatibility:
+        Don't complain about unknown tables and make a full backup of them
+
+    -i
+        Ingore unknown tables (don't include them into the backup)
+
     -q
         Quiet mode: no output except for errors (for batch/crontab use).
 
@@ -173,7 +181,7 @@ fi
 # PARSE COMMAND LINE ARGUMENTS
 #
 DB_GIVEN=0
-while getopts ":c:d:H:o:p:P:r:s:t:u:z:0nqxZ" opt; do
+while getopts ":c:d:H:o:p:P:r:s:t:u:z:0nqxZfi" opt; do
     case $opt in
         t)  DBTYPE="$OPTARG" ;;
         H)  ODBHOST="$OPTARG" ;;
@@ -190,6 +198,8 @@ while getopts ":c:d:H:o:p:P:r:s:t:u:z:0nqxZ" opt; do
         x)  COMPRESSION="xz" ;;
         0)  COMPRESSION="" ;;
         n)  REVERSELOOKUP="no" ;;
+        f)  HANDLE_UNKNOWN="backup" ;;
+        i)  HANDLE_UNKNOWN="ignore" ;;
         q)  QUIET="yes" ;;
         \?) echo "Invalid option: -$OPTARG" >&2; exit 1 ;;
         :)  echo "Option -$OPTARG requires an argument" >&2; exit 1 ;;
@@ -386,10 +396,12 @@ esac
 # (http://stackoverflow.com/a/3477269/2983301)
 #
 DATA_TABLES=()
+KNOWN_TABLES=()
 while read -r line; do
     table=$(echo "$line" | cut -d" " -f1)
     echo "$line" | cut -d" " -f5 | grep -qi "SCHEMAONLY"
     test $? -eq 0 && DATA_TABLES+=($table)
+    KNOWN_TABLES+=($table)
 done < <(sed '0,/^__DATA__$/d' "${BASH_SOURCE[*]}" | tr -s " ")
 
 # paranoid check
@@ -408,7 +420,7 @@ case $DBTYPE in
         DB_TABLES=$(mysql "${DB_OPTS_BATCH[@]}" -e "SELECT table_name FROM information_schema.tables WHERE table_schema = '$DBNAME'" 2>$ERRORLOG)
         ;;
     psql)
-        DB_TABLES=$(psql "${DB_OPTS_BATCH[@]}" -c "SELECT table_name FROM information_schema.tables  WHERE table_schema='public' AND table_type='BASE TABLE'" 2>$ERRORLOG)
+        DB_TABLES=$(psql "${DB_OPTS_BATCH[@]}" -c "SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_catalog='$DBNAME' AND table_type='BASE TABLE'" 2>$ERRORLOG)
         ;;
 esac
 if [ $? -ne 0 ]; then
@@ -420,6 +432,27 @@ fi
 
 DB_TABLES=$(echo "$DB_TABLES" | sort)
 DB_TABLE_NUM=$(echo "$DB_TABLES" | wc -l)
+
+# Check if existing tables are known
+UNKNOWN_TABLES=()
+while read -r table; do
+    elementIn "$table" "${KNOWN_TABLES[@]}" || UNKNOWN_TABLES+=($table)
+done <<<"$DB_TABLES"
+if [ ${#UNKNOWN_TABLES[@]} -gt 0 ]; then
+    if [ "$QUIET" == "no" ]; then
+        echo ""
+        [ $HANDLE_UNKNOWN == "fail" ] && echo "ERROR"
+        echo "Unknown tables found in database:"
+        for tab in "${UNKNOWN_TABLES[@]}"; do echo " - $tab"; done
+        [ $HANDLE_UNKNOWN == "backup" ] && echo "They will be included (full data backup) as -f was specified"
+        [ $HANDLE_UNKNOWN == "ignore" ] && echo "They will be ignored as -i was specified"
+        [ $HANDLE_UNKNOWN == "fail"  ] && echo "To include them (full data backup) specify -f, to ignore them use -i"
+    fi
+    if [ $HANDLE_UNKNOWN == "fail" ]; then
+        clean_psql_pass
+        exit 1;
+    fi
+fi
 
 # Query Zabbix database version
 VERSION=""
@@ -453,6 +486,10 @@ mkdir -p "${DUMPDIR}"
 case $DBTYPE in
     mysql)
         while read -r table; do
+            if [ $HANDLE_UNKNOWN == "ignore" ]; then
+                if elementIn "$table" "${UNKNOWN_TABLES[@]}"; then continue; fi
+            fi
+
             # large data tables: only store schema
             if elementIn "$table" "${DATA_TABLES[@]}"; then
                 dump_opt="--no-data"
@@ -481,14 +518,21 @@ case $DBTYPE in
         done <<<"$DB_TABLES"
     ;;
     psql)
+        DUMP_OPTS=()
         while read -r table; do
+            if [ $HANDLE_UNKNOWN == "ignore" ]; then
+                if elementIn "$table" "${UNKNOWN_TABLES[@]}"; then
+                    DUMP_OPTS+=(--exclude-table=$table)
+                fi
+            fi
             if elementIn "$table" "${DATA_TABLES[@]}"; then
-                dump_opt="--exclude-table-data=$table"
-                PROCESSED_DATA_TABLES+=($dump_opt)
+                DUMP_OPTS+=(--exclude-table-data=$table)
+                PROCESSED_DATA_TABLES+=($table)
             fi
         done <<<"$DB_TABLES"
 
-        pg_dump "${DB_OPTS[@]}" ${PROCESSED_DATA_TABLES[@]} > "$DUMPFILE" 2>$ERRORLOG
+        pg_dump "${DB_OPTS[@]}" -d $DBNAME "${DUMP_OPTS[@]}" > "$DUMPFILE" 2>$ERRORLOG
+
         if [ $? -ne 0 ]; then
             echo -e "\nERROR: Could not backup database." >&2
             cat $ERRORLOG >&2

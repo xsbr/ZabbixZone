@@ -27,7 +27,7 @@ Please see the [version history in the README](https://github.com/maxhq/zabbix-b
   ```
 
 * Update https://github.com/maxhq/zabbix-backup/wiki
-* Update http://zabbix.org/wiki/Docs/howto/mysql_backup_script
+* Update https://zabbix.org/wiki/Docs/howto/database_backup_script
 * Announce release at https://www.linkedin.com/groups/161448
 
   > **New version x.x.x of zabbix-dump**
