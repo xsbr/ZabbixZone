@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
+VERSION=0.9.2
 #
 # NAME
 #     zabbix-dump - Configuration Backup for Zabbix' MySQL or PostgreSQL data
-#
-# VERSION
-#     0.9.2
 #
 # SYNOPSIS
 #     This is a MySQL configuration backup script for Zabbix 1.x, 2.x, 3.x and 4.x.
@@ -64,7 +62,17 @@ READ_ZBX_CONFIG="yes"
 HANDLE_UNKNOWN="fail"
 
 #
-# SHOW HELP
+# Show version
+#
+show_version() {
+    echo "zabbix-dump version $VERSION"
+    exit
+}
+
+if [[ "$1" == "--version" ]]; then show_version; fi
+
+#
+# Show help
 #
 if [[ "$1" == "--help" || "$1" == "-h" ]]; then
     cat <<EOF
@@ -186,7 +194,7 @@ fi
 # PARSE COMMAND LINE ARGUMENTS
 #
 DB_GIVEN=0
-while getopts ":c:S:d:H:o:p:P:r:s:t:u:z:0nqxZfi" opt; do
+while getopts ":c:S:d:H:o:p:P:r:s:t:u:z:0nqxZfiv" opt; do
     case $opt in
         t)  DBTYPE="$OPTARG" ;;
         H)  ODBHOST="$OPTARG" ;;
@@ -207,6 +215,7 @@ while getopts ":c:S:d:H:o:p:P:r:s:t:u:z:0nqxZfi" opt; do
         f)  HANDLE_UNKNOWN="backup" ;;
         i)  HANDLE_UNKNOWN="ignore" ;;
         q)  QUIET="yes" ;;
+        v)  show_version ;;
         \?) echo "Invalid option: -$OPTARG" >&2; exit 1 ;;
         :)  echo "Option -$OPTARG requires an argument" >&2; exit 1 ;;
     esac
