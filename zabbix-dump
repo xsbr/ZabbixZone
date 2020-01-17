@@ -447,6 +447,7 @@ if [ ${#UNKNOWN_TABLES[@]} -gt 0 ]; then
         [ $HANDLE_UNKNOWN == "backup" ] && echo "They will be included (full data backup) as -f was specified"
         [ $HANDLE_UNKNOWN == "ignore" ] && echo "They will be ignored as -i was specified"
         [ $HANDLE_UNKNOWN == "fail"  ] && echo "To include them (full data backup) specify -f, to ignore them use -i"
+        echo ""
     fi
     if [ $HANDLE_UNKNOWN == "fail" ]; then
         clean_psql_pass
@@ -485,37 +486,39 @@ mkdir -p "${DUMPDIR}"
 [ "$QUIET" == "no" ] && echo "Starting table backups..."
 case $DBTYPE in
     mysql)
+        # dump schemas
+        DUMP_OPTS=()
+        if [ $HANDLE_UNKNOWN == "ignore" ]; then
+            while read -r table; do
+                if elementIn "$table" "${UNKNOWN_TABLES[@]}"; then
+                    DUMP_OPTS+=(--ignore-table=$DBNAME.$table)
+                fi
+            done <<<"$DB_TABLES"
+        fi
+
+        mysqldump "${DB_OPTS[@]}" --opt --single-transaction --skip-lock-tables \
+            "${DUMP_OPTS[@]}" --no-data --routines $DBNAME > "$DUMPFILE" 2>$ERRORLOG
+
+        if [ $? -ne 0 ]; then echo $'\nERROR: Could not backup table schemas.\n' >&2; cat $ERRORLOG >&2; exit 1; fi
+
+        # dump data
+        DUMP_OPTS=()
         while read -r table; do
-            if [ $HANDLE_UNKNOWN == "ignore" ]; then
-                if elementIn "$table" "${UNKNOWN_TABLES[@]}"; then continue; fi
-            fi
-
-            # large data tables: only store schema
             if elementIn "$table" "${SCHEMAONLY_TABLES[@]}"; then
-                dump_opt="--no-data"
+                DUMP_OPTS+=(--ignore-table=$DBNAME.$table)
                 PROCESSED_SCHEMAONLY_TABLES+=($table)
-            # configuration tables: full dump
-            else
-                dump_opt="--skip-extended-insert"
             fi
-
-            mysqldump "${DB_OPTS[@]}" \
-                --routines --opt --single-transaction --skip-lock-tables \
-                $dump_opt \
-                $DBNAME --tables ${table} >> "$DUMPFILE" 2>$ERRORLOG
-
-            if [ $? -ne 0 ]; then echo -e "\nERROR: Could not backup table ${table}:" >&2; cat $ERRORLOG >&2; exit 1; fi
-
-            if [ "$QUIET" == "no" ]; then
-                # show percentage
-                i=$((i+1)); i_percent=$(($i * 100 / $DB_TABLE_NUM))
-                if [ $(($i_percent % 12)) -eq 0 ]; then
-                    echo -n "${i_percent}%"
-                else
-                    if [ $(($i_percent % 2)) -eq 0 ]; then echo -n "."; fi
+            if [ $HANDLE_UNKNOWN == "ignore" ]; then
+                if elementIn "$table" "${UNKNOWN_TABLES[@]}"; then
+                    DUMP_OPTS+=(--ignore-table=$DBNAME.$table)
                 fi
             fi
         done <<<"$DB_TABLES"
+
+        mysqldump "${DB_OPTS[@]}" --opt --single-transaction --skip-lock-tables \
+            "${DUMP_OPTS[@]}" --no-create-info --skip-extended-insert $DBNAME >> "$DUMPFILE" 2>$ERRORLOG
+
+        if [ $? -ne 0 ]; then echo $'\nERROR: Could not backup table data.\n' >&2; cat $ERRORLOG >&2; exit 1; fi
     ;;
     psql)
         DUMP_OPTS=()
@@ -534,7 +537,7 @@ case $DBTYPE in
         pg_dump "${DB_OPTS[@]}" -d $DBNAME "${DUMP_OPTS[@]}" > "$DUMPFILE" 2>$ERRORLOG
 
         if [ $? -ne 0 ]; then
-            echo -e "\nERROR: Could not backup database." >&2
+            echo $'\nERROR: Could not backup database.\n' >&2
             cat $ERRORLOG >&2
             clean_psql_pass
             exit 1
