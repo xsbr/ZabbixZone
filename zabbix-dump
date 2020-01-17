@@ -448,7 +448,7 @@ while read -r table; do
     elementIn "$table" "${KNOWN_TABLES[@]}" || UNKNOWN_TABLES+=($table)
 done <<<"$DB_TABLES"
 if [ ${#UNKNOWN_TABLES[@]} -gt 0 ]; then
-    if [ "$QUIET" == "no" ]; then
+    if [[ "$QUIET" == "no" || $HANDLE_UNKNOWN == "fail" ]]; then
         echo ""
         [ $HANDLE_UNKNOWN == "fail" ] && echo "ERROR"
         echo "Unknown tables found in database:"
