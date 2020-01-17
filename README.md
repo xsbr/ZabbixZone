@@ -14,6 +14,14 @@ Please see the [Project Wiki](https://github.com/maxhq/zabbix-backup/wiki).
 
 ## Version history
 
+**0.9.3 (2020-01-17)**
+
+- ENH: Check for unknown tables
+- ENH: Speed up MySQL backup by not calling mysqldump for every single table anymore
+- ENH: New option -S to specify PostgreSQL schema
+- FIX: Stabilize and enhance PostgreSQL dump
+- FIX: Skip IP reverse lookup for localhost, fix multiline dig answers
+
 **0.9.2 (2020-01-16)**
 
 - ENH: Support for Zabbix 4.4

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-VERSION=0.9.2
+VERSION=0.9.3
 #
 # NAME
 #     zabbix-dump - Configuration Backup for Zabbix' MySQL or PostgreSQL data
