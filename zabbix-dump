@@ -330,15 +330,15 @@ if [[ -z "$DBHOST" || "$DBHOST" == "127.0.0.1" || "$DBHOST" == "127.0.0.1" ]]; t
     DBHOSTNAME="$(uname -n)"
 else
     DBHOSTNAME="$DBHOST"
-fi
 
-# Try reverse lookup if IP is given
-command -v dig >/dev/null 2>&1
-FIND_DIG=$?
-if [[ "$REVERSELOOKUP" == "yes" && $FIND_DIG -eq 0 && -n "$DBHOST" ]]; then
-    # Try resolving a given host ip
-    newHostname=$(dig +noall +answer -x "${DBHOST}" | sed -r 's/((\S+)\s+)+([^\.]+)\..*/\3/')
-    test \! -z "$newHostname" && DBHOSTNAME="$newHostname"
+    # Try reverse lookup if IP is given
+    command -v dig >/dev/null 2>&1
+    FIND_DIG=$?
+    if [[ "$REVERSELOOKUP" == "yes" && $FIND_DIG -eq 0 && -n "$DBHOST" ]]; then
+        # Try resolving a given host ip
+        newHostname=$(dig +noall +answer -x "${DBHOST}" | head -n1 | sed -r 's/((\S+)\s+)+([^\.]+)\..*/\3/')
+        test \! -z "$newHostname" && DBHOSTNAME="$newHostname"
+    fi
 fi
 
 #
