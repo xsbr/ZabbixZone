@@ -51,6 +51,7 @@
 DUMPDIR="$PWD"
 DBTYPE="mysql"
 DEFAULT_DBHOST="127.0.0.1"
+DEFAULT_DBSCHEMA="public"
 DEFAULT_DBNAME="zabbix"
 DEFAULT_DBUSER="zabbix"
 DEFAULT_DBPASS=""
@@ -87,6 +88,10 @@ OPTIONS
     -s DBSOCKET
         Path to DBMS socket file.
         Can be used as an alternative to specifying host (and maybe port).
+
+    -S SCHEMA
+        Name of database schema (PostgreSQL only).
+        Default: $DEFAULT_DBSCHEMA
 
     -d DATABASE
         Name of Zabbix database.
@@ -181,11 +186,12 @@ fi
 # PARSE COMMAND LINE ARGUMENTS
 #
 DB_GIVEN=0
-while getopts ":c:d:H:o:p:P:r:s:t:u:z:0nqxZfi" opt; do
+while getopts ":c:S:d:H:o:p:P:r:s:t:u:z:0nqxZfi" opt; do
     case $opt in
         t)  DBTYPE="$OPTARG" ;;
         H)  ODBHOST="$OPTARG" ;;
         s)  ODBSOCKET="$OPTARG" ;;
+        S)  ODBSCHEMA="$OPTARG" ;;
         d)  ODBNAME="$OPTARG"; DB_GIVEN=1 ;;
         u)  ODBUSER="$OPTARG" ;;
         P)  ODBPORT="$OPTARG" ;;
@@ -216,6 +222,7 @@ if [[ "${READ_ZBX_CONFIG}" == "yes" && -f "${ZBX_CONFIG}" && -r "${ZBX_CONFIG}" 
     DBHOST="$(/usr/bin/awk -F'=' '/^DBHost/{ print $2 }' "${ZBX_CONFIG}")"
     DBPORT="$(/usr/bin/awk -F'=' '/^DBPort/{ print $2 }' "${ZBX_CONFIG}")"
     DBNAME="$(/usr/bin/awk -F'=' '/^DBName/{ print $2 }' "${ZBX_CONFIG}")"
+    DBSCHEMA="$(/usr/bin/awk -F'=' '/^DBSchema/{ print $2 }' "${ZBX_CONFIG}")"
     DBUSER="$(/usr/bin/awk -F'=' '/^DBUser/{ print $2 }' "${ZBX_CONFIG}")"
     DBPASS="$(/usr/bin/awk -F'=' '/^DBPassword/{ print $2 }' "${ZBX_CONFIG}")"
 
@@ -253,6 +260,7 @@ fi
 [ -n "$ODBHOST" ] && DBHOST=$ODBHOST
 [ -n "$ODBPORT" ] && DBPORT=$ODBPORT
 [ -n "$ODBSOCKET" ] && DBSOCKET=$ODBSOCKET && DBHOST=""
+[ -n "$ODBSCHEMA" ] && DBSCHEMA=$ODBSCHEMA
 [ -n "$ODBNAME" ] && DBNAME=$ODBNAME
 [ -n "$ODBUSER" ] && DBUSER=$ODBUSER
 [ -n "$ODBPASS" ] && DBPASS=$ODBPASS
@@ -344,6 +352,7 @@ EOF
     [ -n "$MYSQL_CONFIG" ] && echo " - cfg file: $MYSQL_CONFIG"
     [ -n "$DBHOST" ]       && echo " - host:     $DBHOST ($DBHOSTNAME)" && echo " - port:     $DBPORT"
     [ -n "$DBSOCKET" ]     && echo " - socket:   $DBSOCKET"
+    [ -n "$DBSCHEMA" ]     && echo " - schema:   $DBSCHEMA"
     [ -n "$DBNAME" ]       && echo " - database: $DBNAME"
     [ -n "$DBUSER" ]       && echo " - user:     $DBUSER"
     [ -n "$DUMPDIR" ]      && echo " - output:   $DUMPDIR"
@@ -487,7 +496,7 @@ mkdir -p "${DUMPDIR}"
 case $DBTYPE in
     mysql)
         # dump schemas
-        DUMP_OPTS=()
+        DUMP_OPTS=(--opt --single-transaction --skip-lock-tables --no-data --routines)
         if [ $HANDLE_UNKNOWN == "ignore" ]; then
             while read -r table; do
                 if elementIn "$table" "${UNKNOWN_TABLES[@]}"; then
@@ -496,13 +505,12 @@ case $DBTYPE in
             done <<<"$DB_TABLES"
         fi
 
-        mysqldump "${DB_OPTS[@]}" --opt --single-transaction --skip-lock-tables \
-            "${DUMP_OPTS[@]}" --no-data --routines $DBNAME > "$DUMPFILE" 2>$ERRORLOG
+        mysqldump "${DB_OPTS[@]}" "${DUMP_OPTS[@]}" $DBNAME > "$DUMPFILE" 2>$ERRORLOG
 
         if [ $? -ne 0 ]; then echo $'\nERROR: Could not backup table schemas.\n' >&2; cat $ERRORLOG >&2; exit 1; fi
 
         # dump data
-        DUMP_OPTS=()
+        DUMP_OPTS=(--opt --single-transaction --skip-lock-tables --no-create-info --skip-extended-insert)
         while read -r table; do
             if elementIn "$table" "${SCHEMAONLY_TABLES[@]}"; then
                 DUMP_OPTS+=(--ignore-table=$DBNAME.$table)
@@ -515,8 +523,7 @@ case $DBTYPE in
             fi
         done <<<"$DB_TABLES"
 
-        mysqldump "${DB_OPTS[@]}" --opt --single-transaction --skip-lock-tables \
-            "${DUMP_OPTS[@]}" --no-create-info --skip-extended-insert $DBNAME >> "$DUMPFILE" 2>$ERRORLOG
+        mysqldump "${DB_OPTS[@]}" "${DUMP_OPTS[@]}" $DBNAME >> "$DUMPFILE" 2>$ERRORLOG
 
         if [ $? -ne 0 ]; then echo $'\nERROR: Could not backup table data.\n' >&2; cat $ERRORLOG >&2; exit 1; fi
     ;;
@@ -534,7 +541,9 @@ case $DBTYPE in
             fi
         done <<<"$DB_TABLES"
 
-        pg_dump "${DB_OPTS[@]}" -d $DBNAME "${DUMP_OPTS[@]}" > "$DUMPFILE" 2>$ERRORLOG
+        [ -n "$DBSCHEMA" ] && DUMP_OPTS=("${DUMP_OPTS[@]}" -n $DBSCHEMA)
+
+        pg_dump "${DB_OPTS[@]}" "${DUMP_OPTS[@]}" -d $DBNAME > "$DUMPFILE" 2>$ERRORLOG
 
         if [ $? -ne 0 ]; then
             echo $'\nERROR: Could not backup database.\n' >&2
